@@ -1,0 +1,220 @@
+#Prac CompSats
+
+### QUESTION 1 (a) ###
+base <- read.table('http://www.stats.ox.ac.uk/~nicholls/CompStats/baseball.txt',header=T)
+base <- base[!is.na(base$salary),]
+base$log_salary <- log(base$salary)
+attach(base)
+
+#a.1
+boxplot(log_salary~division)
+plot(homeruns_career,log_salary,xlab='Home Runs',ylab='log(Salary)',col=as.factor(division))
+
+#a.2
+plot(homeruns_career,log_salary)
+bb.lm=lm(log_salary~homeruns_career)
+abline(bb.lm,col=2,lwd=2)
+# plot suggests salary increasing exponentially with homeruns is poor fit
+# as salary seems to level out at large runs
+# also heteroscedastic. Outliers reduce slope.
+
+#a.3
+library(KernSmooth)
+plot(homeruns_career,log_salary,xlab='Home Runs',ylab='log(Salary)')
+kn <- ksmooth(homeruns_career,log_salary,kernel='normal',bandwidth=100)
+ks <- ksmooth(homeruns_career,log_salary,kernel='box',bandwidth=100)
+lines(kn,col=1,lwd=2)
+lines(ks,col=2,lwd=2)
+
+k2 <- locpoly(homeruns_career,log_salary,bandwidth=100,degree=1)
+lines(k2,col=3,lwd=2)
+#see dpill in Kernsmooth - automatic bandwidth - doesnt work well here
+k3 <- locpoly(homeruns_career,log_salary,bandwidth=dpill(homeruns_career,log_salary),degree=1)
+lines(k3,col=3,lwd=2)
+#lowess locpoly but adjusts BW to keep fraction f of points in window.
+k4 <- lowess(homeruns_career,log_salary,f=0.5)
+lines(k4,col=4,lwd=2)
+#spline with GCV choice of DOF
+lines(smooth.spline(homeruns_career,log_salary),col=5,lwd=2)
+#uneven x-spacing, variable bandwidth 
+#and sparsity at large runs makes a tough smooth
+
+#a.4 try log-log
+log_homeruns_career <- log(homeruns_career+0.1)
+plot(log_homeruns_career,log_salary,xlab='Home Runs',ylab='log(Salary)')
+ft=lm(log_salary~log_homeruns_career)
+abline(ft,col=1,lwd=2)# outliers at small log-runs mess this fit up
+
+#I leave it to you to experiment with bandwidth below
+k <- ksmooth(log_homeruns_career,log_salary,kernel='normal',bandwidth=1)
+lines(k,col=2,lwd=2)
+k2 <- locpoly(log_homeruns_career,log_salary,bandwidth=dpill(log_homeruns_career,log_salary),degree=1)
+lines(k2,col=3,lwd=2)
+k3 <- locpoly(log_homeruns_career,log_salary,bandwidth=2,degree=1)
+lines(k3,col=3,lwd=2)
+k4 <- lowess(log_homeruns_career,log_salary,f=0.3)
+lines(k4,col=4,lwd=2)
+lines(smooth.spline(log_homeruns_career,log_salary),col=5,lwd=2)
+#like k3
+
+#a.5
+#See lecture notes L6.R. The LOO-CV is almost unchanged from lecture 6 code.
+#Calculation of S is a bit more work, the formulae are also given in PS2.
+#You can check you have it right by computing Yhat and comparing R locpoly.
+
+
+######################
+### QUESTION 1 (b) ###
+#b.1
+wilcox <- data.frame(log_salary,division)
+wilcox$rank <- rank(wilcox$log_salary)
+m <- sum(division=='E') #these are the Y's
+# [1] 129
+n <- sum(division=='W')
+# [1] 134
+W <- sum(wilcox$rank[wilcox$division=='E'])
+W
+# [1] 18494.5
+
+# some ties - yikes
+length(unique(wilcox$log_salary))
+length(wilcox$log_salary)
+
+#
+e <- m*(n+m+1)/2
+v <- n*m*(n+m+1)/12
+
+(W-e)/sqrt(v)
+# 2.378064 >0 so subtract (not add) continuity correction (negligible)
+
+(p <- 2*pnorm(-abs((W-0.5-e)/sqrt(v)))) # two-tailed test, -0.5 as Wobs is in the upper tail of W
+# [1] 0.01740382
+# reject H0 - there is difference in median
+
+#"by hand" - note R uses Mann-Whitney TS
+U=W-m*(m+1)/2; U
+# [1] 10109.5
+2*pwilcox(U-1,m,n,lower.tail=FALSE) # why not 2*(1-pwilcox)? ANS - need to include U itself (negligible)
+# [1] 0.01730879
+
+# b.2
+# check what damage from ties? Remark - check this
+K<-1e4; Ws<-rep(NA,K)
+for (k in 1:K) Ws[k]<-sum(sample(wilcox$rank)[wilcox$division=='E']) # same as L2 P10
+hist(Ws,breaks=min(Ws-0.5):max(Ws+0.5)); abline(v=W,col=2,lwd=2)
+p=2*mean(Ws>=W);  p; sqrt(p*(1-p)/K); #W is in upper tail so do it this way round
+#I got 0.014 - same answer... more or less
+
+#b.3
+wilcox.test(log_salary~division,conf.int=T,correct=T)
+# Wilcoxon rank sum test
+#
+# data:  log_salary by division
+# W = 10110, p-value = 0.0174
+# alternative hypothesis: true location shift is not equal to 0
+# 95 percent confidence interval:
+#  0.04561521 0.49353481
+# sample estimates:
+# difference in location 
+# 0.2702028 
+#
+# Conclude ... referring to salaries in divisions E,W
+# E=W+D where D (difference) is in [0.046,0.494]
+# LH estimate of diff in median is E=W+0.27 (here E is X, W is Y, X&Y swapped in wilcox.test())
+# Assumptions: W~E-D (H0), independent observations, continuous (here salary is cts, i.e. X&Y are cts - but this is not necessary)
+
+# a good plot!
+plot(ecdf(log_salary[division=='E']))
+lines(ecdf(log_salary[division=='W']),col=2)
+# Maybe - point here is one cdf is roughly a shifted version of other
+
+
+######################
+### QUESTION 1 (c) ###
+
+#c.1
+#because they are two different properties of the same player
+#so will be correlated by underlying measured and unmeasured covariates characterising the player
+
+#c.2
+wilcox.test(walks-runs,conf.int = TRUE)
+#walks~runs-D where -15.5<D<-11, point estimate of diff in medians is 13.5
+
+#take a closer look at data
+par(mfrow=c(1,3))
+hist(runs,30)
+hist(walks,30)
+
+plot(ecdf(walks))
+lines(ecdf(runs),col=2)
+#paired data so diff and use rank sign
+#walks-runs symmetric about 0 under null walks~runs-D
+#assume independent (between pairs) continuous data
+
+par(mfrow=c(1,1))
+hist(walks-runs)
+#dodgy assumption not symmetric (lower tail?)
+
+###########################################################################################################
+
+### Question 2(a) ###
+#############################
+#permutation test choosing a good test stat - different sd's same median
+#null is false
+n=100; x=rnorm(n,0,1); 
+m=100; y=rnorm(m,0,1.5); 
+plot(density(x))
+lines(density(y),col=2)
+wilcox.test(x,y) #accepts H0
+
+# obvious thing is to base test on difference of sd's
+z=c(x,y)
+T=abs(sd(z[1:n])-sd(z[(n+1):(m+n)])) # my test stat is |sd(x)-sd(y)|
+T
+par(mfrow = c(1,1))
+J=1000; T0=rep(NA,J); for (k in 1:J) {i=sample(1:(m+n),(m+n),replace=FALSE); zp=z[i]; T0[k]=abs(sd(zp[1:n])-sd(zp[(n+1):(m+n)]))} 
+# this is same as code on L1 P14
+hist(T0)
+mean(T<T0) # as T0 < T
+#tests rejects H0
+
+#could be improved by using ranks of z - robust
+rz=rank(z)
+T=abs(sd(rz[1:n])-sd(rz[(n+1):(m+n)])) # my test stat is sum of |sd(rx)-sd(ry)|
+T
+J=1000; T0=rep(NA,J); for (k in 1:J) {i=sample(1:(m+n),(m+n),replace=FALSE); rzp=rz[i]; T0[k]=abs(sd(rzp[1:n])-sd(rzp[(n+1):(m+n)]))} 
+hist(T0)
+mean(T<T0)
+
+#permutation test choosing a good test stat - different sd's
+#null is true
+n=100; x=rnorm(n,0,1); 
+m=100; y=rnorm(m,0,1); 
+plot(density(x))
+lines(density(y),col=2)
+wilcox.test(x,y) #accepts H0
+z=c(x,y)
+T=abs(sd(z[1:n])-sd(z[(n+1):(m+n)])) #my test stat is sum of |sd(x)-sd(y)|
+T
+J=1000; T0=rep(NA,J); for (k in 1:J) {i=sample(1:(m+n),(m+n),replace=FALSE); zp=z[i]; T0[k]=abs(sd(zp[1:n])-sd(zp[(n+1):(m+n)]))} #dist x to mz null
+hist(T0)
+mean(T<T0)
+#tests accepts H0
+
+#and robust version using ranks (not order statistics)
+rz=rank(z)
+T=abs(sd(rz[1:n])-sd(rz[(n+1):(m+n)])) #my test stat is sum of |sd(rx)-sd(ry)|
+T
+J=1000; T0=rep(NA,J); for (k in 1:J) {i=sample(1:(m+n),(m+n),replace=FALSE); rzp=rz[i]; T0[k]=abs(sd(rzp[1:n])-sd(rzp[(n+1):(m+n)]))} 
+hist(T0)
+mean(T<T0)
+#again accepts H0 as expected
+
+### Question 2(b) ###
+#Wilcox RT rejects Delta=0 with equal medians but different DBNs
+n=1000; a=rgamma(n,2,9); a=a-median(a)
+m=1000; b=rgamma(m,2,9); b=median(b)-b
+#both have median=0 but different skew
+plot(density(a),xlim=c(-1,1))
+lines(density(b),col=2)
+wilcox.test(a,b)
