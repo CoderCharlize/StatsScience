@@ -1,1 +1,1 @@
-Programming exercises for MSc Statistical Science at University of Oxford.
+Programming courseworks for MSc Statistical Science at University of Oxford.
