@@ -1,1 +1,1 @@
-Coding courseworks for MSc Statistical Science, including exercises for Statistical Machine Learning and Bayes Methods.
+Coding courseworks for Statistical Machine Learning and Bayes Methods from MSc Statistical Science.
