@@ -1,1 +1,1 @@
-Coding courseworks for Statistical Machine Learning and Bayes Methods from MSc Statistical Science.
+Coding coursework in R for Statistical Machine Learning and Bayesian Methods from MSc Statistical Science.
