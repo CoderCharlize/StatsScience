@@ -1,1 +1,1 @@
-Coding coursework in R for Statistical Machine Learning and Bayesian Methods from MSc Statistical Science.
+MSc Stats courseworks: Statistical Machine Learning, Bayesian Methods (MCMC), Applied Statistics, Statistical Programming. All codes are in R.
